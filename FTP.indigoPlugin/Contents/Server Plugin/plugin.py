@@ -92,62 +92,127 @@ class Plugin(indigo.PluginBase):
 	# Plugin Actions object callbacks (pluginAction is an Indigo plugin action instance)
 	######################
 
-	def uploadFileAction(self, pluginAction, ftpDevice):
+	def	connect(self, ftpDevice):
+	
 		props = ftpDevice.pluginProps
-		localFile =  indigo.activePlugin.substitute(pluginAction.props["localFile"])
-		remoteFile =  indigo.activePlugin.substitute(pluginAction.props["remoteFile"])
 		port = props["port"]
-		self.logger.debug(u"uploadFileAction sending file: " + localFile)
 		ftp = FTP()
-		self.logger.debug(u"downloadFileAction setting passive mode %s" % props['passive'])
+		self.logger.debug(u"connect setting passive mode %s" % props['passive'])
 		ftp.set_pasv(props['passive'])
-		self.logger.debug(u"uploadFileAction connecting to server: %s (%s)" % (props['address'], port))
+		self.logger.debug(u"connect connecting to server: %s (%s)" % (props['address'], port))
 
 		try:
 			ftp.connect(props['address'], int(port), 5)
 		except ftplib.all_errors as e:
-			self.logger.exception("Connect error: %s" % e)
+			self.logger.exception("ftp.connect error: %s" % e)
 			
 		try:
 			ftp.login(user=props['serverLogin'], passwd=props['serverPassword'])
 		except ftplib.all_errors as e:
-			self.logger.exception("Connect error: %s" % e)
+			self.logger.exception("ftp.login error: %s" % e)
 			
 		try:
 			ftp.cwd('/'+props['directory']+'/')
 		except ftplib.all_errors as e:
-			self.logger.exception("Connect error: %s" % e)
+			self.logger.exception("ftp.cwd error: %s" % e)
 
+		return ftp
+			
+	def uploadFileAction(self, pluginAction, ftpDevice):
+		localFile =  indigo.activePlugin.substitute(pluginAction.props["localFile"])
+		remoteFile =  indigo.activePlugin.substitute(pluginAction.props["remoteFile"])
+		self.logger.debug(u"uploadFileAction sending file: " + localFile)
+
+		ftp = self.connect(ftpDevice)
+		
 		try:
 			ftp.storbinary('STOR ' + remoteFile, open(localFile, 'rb'))
 		except ftplib.all_errors as e:
-			self.logger.exception("Connect error: %s" % e)
+			self.logger.exception("ftp.storbinary error: %s" % e)
 
 		try:
 			ftp.quit()
 		except ftplib.all_errors as e:
-			self.logger.exception("Connect error: %s" % e)
+			self.logger.exception("ftp.quit error: %s" % e)
 		self.logger.debug(u"uploadFileAction complete")
 
 
 	def downloadFileAction(self, pluginAction, ftpDevice):
-		props = ftpDevice.pluginProps
 		remoteFile =  indigo.activePlugin.substitute(pluginAction.props["remoteFile"])
 		localFile =  indigo.activePlugin.substitute(pluginAction.props["localFile"])
 		self.logger.debug(u"downloadFileAction getting file: " + remoteFile)
 
-		ftp = FTP()
-		self.logger.debug(u"downloadFileAction setting passive mode %s" % props['passive'])
-		ftp.set_pasv(props['passive'])
-		self.logger.debug(u"downloadFileAction connecting to server: %s (%s)" % (props['address'], props["port"]))
-		ftp.connect(props['address'], int(props["port"]), 5)
-		ftp.login(user=props['serverLogin'], passwd=props['serverPassword'])
-		ftp.cwd('/'+props['directory']+'/')
-  		lfile = open(localFile, 'wb')
-		ftp.retrbinary('RETR ' + remoteFile, lfile.write, 1024)
-		ftp.quit()
+		ftp = self.connect(ftpDevice)
+
+		try:
+  			lfile = open(localFile, 'wb')
+  		except:
+			self.logger.exception("Error opening local file: %s" % e)
+  			
+		try:
+			ftp.retrbinary('RETR ' + remoteFile, lfile.write, 1024)
+		except ftplib.all_errors as e:
+			self.logger.exception("ftp.retrbinary error: %s" % e)
+
 		lfile.close()
+		try:
+			ftp.quit()
+		except ftplib.all_errors as e:
+			self.logger.exception("ftp.quit error: %s" % e)
 		self.logger.debug(u"downloadFileAction complete")
+
+	def renameFileAction(self, pluginAction, ftpDevice):
+		fromFile =  indigo.activePlugin.substitute(pluginAction.props["fromFile"])
+		toFile =  indigo.activePlugin.substitute(pluginAction.props["toFile"])
+		self.logger.debug(u"renameFileAction from: " + fromFile + " to: " + toFile)
+
+		ftp = self.connect(ftpDevice)
+		
+		try:
+			ftp.rename(fromFile, toFile)
+		except ftplib.all_errors as e:
+			self.logger.exception("ftp.rename error: %s" % e)
+
+		try:
+			ftp.quit()
+		except ftplib.all_errors as e:
+			self.logger.exception("ftp.quit error: %s" % e)
+		self.logger.debug(u"renameFileAction complete")
+
+
+	def deleteFileAction(self, pluginAction, ftpDevice):
+		remoteFile =  indigo.activePlugin.substitute(pluginAction.props["remoteFile"])
+		self.logger.debug(u"deleteFileAction deleting file: " + remoteFile)
+
+		ftp = self.connect(ftpDevice)
+
+		try:
+			ftp.delete(remoteFile)
+		except ftplib.all_errors as e:
+			self.logger.exception("ftp.delete error: %s" % e)
+
+		try:
+			ftp.quit()
+		except ftplib.all_errors as e:
+			self.logger.exception("ftp.quit error: %s" % e)
+		self.logger.debug(u"deleteFileAction complete")
+
+	def nameListAction(self, pluginAction, ftpDevice):
+		self.logger.debug(u"nameListAction")
+
+		ftp = self.connect(ftpDevice)
+
+		try:
+			names = ftp.nlst()
+			self.logger.debug(u"names = %s" % names)
+		except ftplib.all_errors as e:
+			self.logger.exception("ftp.delete error: %s" % e)
+
+		try:
+			ftp.quit()
+		except ftplib.all_errors as e:
+			self.logger.exception("ftp.quit error: %s" % e)
+		self.logger.debug(u"deleteFileAction complete")
 
 
 	########################################
