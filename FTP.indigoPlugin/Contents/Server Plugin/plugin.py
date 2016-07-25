@@ -5,7 +5,8 @@
 import sys
 import time
 import logging
-from ftplib import FTP
+import json
+from ftplib import FTP, all_errors
 
 from ghpu import GitHubPluginUpdater
 
@@ -59,7 +60,12 @@ class Plugin(indigo.PluginBase):
 								
 		except self.stopThread:
 			pass
-								
+						
+						
+	def deviceStartComm(self, device):
+		device.updateStateOnServer(key="serverStatus", value="Success")
+		device.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
+		
 	####################
 	def validatePrefsConfigUi(self, valuesDict):
 		errorDict = indigo.Dict()
@@ -103,19 +109,27 @@ class Plugin(indigo.PluginBase):
 
 		try:
 			ftp.connect(props['address'], int(port), 5)
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.connect error: %s" % e)
+		except all_errors as e:
+			ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
+			ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+			self.logger.error("ftp.connect error: %s" % e)
 			
 		try:
 			ftp.login(user=props['serverLogin'], passwd=props['serverPassword'])
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.login error: %s" % e)
+		except all_errors as e:
+			ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
+			ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+			self.logger.error("ftp.login error: %s" % e)
 			
 		try:
 			ftp.cwd('/'+props['directory']+'/')
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.cwd error: %s" % e)
+		except all_errors as e:
+			ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
+			ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+			self.logger.error("ftp.cwd error: %s" % e)
 
+		ftpDevice.updateStateOnServer(key="serverStatus", value="Success")
+		ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
 		return ftp
 			
 	def uploadFileAction(self, pluginAction, ftpDevice):
@@ -127,13 +141,17 @@ class Plugin(indigo.PluginBase):
 		
 		try:
 			ftp.storbinary('STOR ' + remoteFile, open(localFile, 'rb'))
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.storbinary error: %s" % e)
+		except all_errors as e:
+			ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
+			ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+			self.logger.error("ftp.storbinary error: %s" % e)
 
 		try:
 			ftp.quit()
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.quit error: %s" % e)
+		except all_errors as e:
+			ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
+			ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+			self.logger.error("ftp.quit error: %s" % e)
 		self.logger.debug(u"uploadFileAction complete")
 
 
@@ -147,18 +165,22 @@ class Plugin(indigo.PluginBase):
 		try:
   			lfile = open(localFile, 'wb')
   		except:
-			self.logger.exception("Error opening local file: %s" % e)
+			self.logger.error("Error opening local file: %s" % e)
   			
 		try:
 			ftp.retrbinary('RETR ' + remoteFile, lfile.write, 1024)
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.retrbinary error: %s" % e)
+		except all_errors as e:
+			ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
+			ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+			self.logger.error("ftp.retrbinary error: %s" % e)
 
 		lfile.close()
 		try:
 			ftp.quit()
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.quit error: %s" % e)
+		except all_errors as e:
+			ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
+			ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+			self.logger.error("ftp.quit error: %s" % e)
 		self.logger.debug(u"downloadFileAction complete")
 
 	def renameFileAction(self, pluginAction, ftpDevice):
@@ -170,13 +192,13 @@ class Plugin(indigo.PluginBase):
 		
 		try:
 			ftp.rename(fromFile, toFile)
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.rename error: %s" % e)
+		except all_errors as e:
+			self.logger.error("ftp.rename error: %s" % e)
 
 		try:
 			ftp.quit()
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.quit error: %s" % e)
+		except all_errors as e:
+			self.logger.error("ftp.quit error: %s" % e)
 		self.logger.debug(u"renameFileAction complete")
 
 
@@ -188,13 +210,13 @@ class Plugin(indigo.PluginBase):
 
 		try:
 			ftp.delete(remoteFile)
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.delete error: %s" % e)
+		except all_errors as e:
+			self.logger.error("ftp.delete error: %s" % e)
 
 		try:
 			ftp.quit()
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.quit error: %s" % e)
+		except all_errors as e:
+			self.logger.error("ftp.quit error: %s" % e)
 		self.logger.debug(u"deleteFileAction complete")
 
 	def nameListAction(self, pluginAction, ftpDevice):
@@ -204,16 +226,17 @@ class Plugin(indigo.PluginBase):
 
 		try:
 			names = ftp.nlst()
+			ftpDevice.updateStateOnServer(key="nameList", value=json.dumps(names))
 			self.logger.debug(u"names = %s" % names)
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.delete error: %s" % e)
+		except all_errors as e:
+			self.logger.error("ftp.nlst error: %s" % e)
 
 		try:
 			ftp.quit()
-		except ftplib.all_errors as e:
-			self.logger.exception("ftp.quit error: %s" % e)
+		except all_errors as e:
+			self.logger.error("ftp.quit error: %s" % e)
 		self.logger.debug(u"deleteFileAction complete")
-
+		return names
 
 	########################################
 	# Menu Methods
