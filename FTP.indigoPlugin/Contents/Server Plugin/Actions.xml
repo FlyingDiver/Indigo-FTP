@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<Actions>
+	<SupportURL>http://forums.indigodomo.com/viewforum.php?f=177</SupportURL>
+	<Action id="uploadFile" deviceFilter="self.ftpServer">
+		<Name>Upload File</Name>
+		<CallbackMethod>uploadFileAction</CallbackMethod>
+		<ConfigUI>
+			<Field id="localFile" type="textfield">
+				<Label>Local File Name:</Label>
+			</Field>
+			<Field id="remoteFile" type="textfield">
+				<Label>Remote File Name:</Label>
+			</Field>
+			<Field id="simpleSeparator2" type="separator"/>
+			<Field id="messageNote" type="label" fontSize="small" fontColor="darkgray">
+				<Label>Variable and Device State Substitution is enabled for all fields. Use the format %%v:12345%% for variables and %%d:12345:someStateId%% for device states.</Label>
+			</Field>
+		</ConfigUI>
+	</Action>
+	<Action id="downloadFile" deviceFilter="self.ftpServer">
+		<Name>DownLoad File</Name>
+		<CallbackMethod>downloadFileAction</CallbackMethod>
+		<ConfigUI>
+			<Field id="remoteFile" type="textfield">
+				<Label>Remote File Name:</Label>
+			</Field>
+			<Field id="localFile" type="textfield">
+				<Label>Local File Name:</Label>
+			</Field>
+			<Field id="simpleSeparator2" type="separator"/>
+			<Field id="messageNote" type="label" fontSize="small" fontColor="darkgray">
+				<Label>Variable and Device State Substitution is enabled for all fields. Use the format %%v:12345%% for variables and %%d:12345:someStateId%% for device states.</Label>
+			</Field>
+		</ConfigUI>
+	</Action>
+</Actions>
