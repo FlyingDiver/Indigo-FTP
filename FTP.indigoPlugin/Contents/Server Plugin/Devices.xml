@@ -1,43 +1,43 @@
 <?xml version="1.0"?>
 <Devices>
-	<Device type="custom" id="ftpServer">
-		<Name>FTP Server</Name>
-		<ConfigUI>
-			<SupportURL>http://forums.indigodomo.com/viewforum.php?f=177</SupportURL>
-			<Field id="address" type="textfield">
-				<Label>Server Address:</Label>
-			</Field>
-			<Field id="port" type="textfield" default="21">
-				<Label>Server Port:</Label>
-			</Field>
-			<Field id="messageNote" type="label" fontSize="small" fontColor="darkgray">
-				<Label>IP Address or fully qualified domain name (ftp.myhost.com).</Label>
-			</Field>
-			<Field id="passive" type="checkbox" defaultValue="false">
-				<Label>Use Passive Mode</Label>
-			</Field>
-			<Field id="serverLogin" type="textfield">
-				<Label>Login:</Label>
-			</Field>
-			<Field id="serverPassword" type="textfield" secure="true">
-				<Label>Password:</Label>
-			</Field>
-			<Field id="directory" type="textfield">
-				<Label>Directory:</Label>
-			</Field>
-		</ConfigUI>
-		<States>
-			<State id="nameList">
-				<ValueType>String</ValueType>
-				<TriggerLabel>Filename List Result</TriggerLabel>
-				<ControlPageLabel>Filename List Result</ControlPageLabel>
-			</State>
-			<State id="serverStatus">
-				<ValueType>String</ValueType>
-				<TriggerLabel>Server Connection Status</TriggerLabel>
-				<ControlPageLabel>Server Status</ControlPageLabel>
-			</State>
-		</States>
-		<UiDisplayStateId>serverStatus</UiDisplayStateId>
-	</Device>
+    <Device type="custom" id="ftpServer">
+        <Name>FTP Server</Name>
+        <ConfigUI>
+            <SupportURL>http://forums.indigodomo.com/viewforum.php?f=177</SupportURL>
+            <Field id="address" type="textfield">
+                <Label>Server Address:</Label>
+            </Field>
+            <Field id="port" type="textfield" default="21">
+                <Label>Server Port:</Label>
+            </Field>
+            <Field id="messageNote" type="label" fontSize="small" fontColor="darkgray">
+                <Label>IP Address or fully qualified domain name (ftp.myhost.com).</Label>
+            </Field>
+            <Field id="passive" type="checkbox" defaultValue="false">
+                <Label>Use Passive Mode</Label>
+            </Field>
+            <Field id="serverLogin" type="textfield">
+                <Label>Login:</Label>
+            </Field>
+            <Field id="serverPassword" type="textfield" secure="true">
+                <Label>Password:</Label>
+            </Field>
+            <Field id="directory" type="textfield">
+                <Label>Directory:</Label>
+            </Field>
+        </ConfigUI>
+        <States>
+            <State id="nameList">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Filename List Result</TriggerLabel>
+                <ControlPageLabel>Filename List Result</ControlPageLabel>
+            </State>
+            <State id="serverStatus">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Server Connection Status</TriggerLabel>
+                <ControlPageLabel>Server Status</ControlPageLabel>
+            </State>
+        </States>
+        <UiDisplayStateId>serverStatus</UiDisplayStateId>
+    </Device>
 </Devices>
