@@ -1,5 +1,10 @@
 <?xml version="1.0"?>
 <MenuItems>
+    <MenuItem id="menu1">
+        <Name>Clear FTP Queue</Name>
+        <CallbackMethod>clearAllQueues</CallbackMethod>
+    </MenuItem>
+    <MenuItem id="titleSeparator1" type="separator" />
     <MenuItem id="checkForUpdates">
         <Name>Check for Updates</Name>
         <CallbackMethod>checkForUpdates</CallbackMethod>

@@ -3,7 +3,7 @@
     <SupportURL>http://forums.indigodomo.com/viewforum.php?f=177</SupportURL>
     <Action id="uploadFile" deviceFilter="self.ftpServer">
         <Name>Upload File</Name>
-        <CallbackMethod>uploadFileAction</CallbackMethod>
+        <CallbackMethod>executeAction</CallbackMethod>
         <ConfigUI>
             <Field id="localFile" type="textfield">
                 <Label>Local File Name:</Label>
@@ -19,7 +19,7 @@
     </Action>
     <Action id="downloadFile" deviceFilter="self.ftpServer">
         <Name>DownLoad File</Name>
-        <CallbackMethod>downloadFileAction</CallbackMethod>
+        <CallbackMethod>executeAction</CallbackMethod>
         <ConfigUI>
             <Field id="remoteFile" type="textfield">
                 <Label>Remote File Name:</Label>
@@ -35,7 +35,7 @@
     </Action>
     <Action id="renameFile" deviceFilter="self.ftpServer">
         <Name>Rename File</Name>
-        <CallbackMethod>renameFileAction</CallbackMethod>
+        <CallbackMethod>executeAction</CallbackMethod>
         <ConfigUI>
             <Field id="fromFile" type="textfield">
                 <Label>From File Name:</Label>
@@ -51,7 +51,7 @@
     </Action>
     <Action id="deleteFile" deviceFilter="self.ftpServer">
         <Name>Delete File</Name>
-        <CallbackMethod>deleteFileAction</CallbackMethod>
+        <CallbackMethod>executeAction</CallbackMethod>
         <ConfigUI>
             <Field id="remoteFile" type="textfield">
                 <Label>Remote File Name:</Label>
@@ -64,6 +64,10 @@
     </Action>
     <Action id="nameList" deviceFilter="self.ftpServer">
         <Name>Filename List</Name>
-        <CallbackMethod>nameListAction</CallbackMethod>
+        <CallbackMethod>executeAction</CallbackMethod>
+    </Action>
+    <Action id="clearAllQueues">
+        <Name>Clear FTP Queue</Name>
+        <CallbackMethod>clearQueues</CallbackMethod>
     </Action>
 </Actions>

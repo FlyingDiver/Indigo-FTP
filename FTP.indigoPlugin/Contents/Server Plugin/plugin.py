@@ -6,11 +6,12 @@ import sys
 import time
 import logging
 import json
+
+from Queue import Queue, Empty
+from threading import Thread, Event
 from ftplib import FTP, all_errors
 
 from ghpu import GitHubPluginUpdater
-
-kCurDevVersCount = 0        # current version of plugin devices
 
 ################################################################################
 class Plugin(indigo.PluginBase):
@@ -39,6 +40,13 @@ class Plugin(indigo.PluginBase):
         self.logger.debug(u"updateFrequency = " + str(self.updateFrequency))
         self.next_update_check = time.time()
 
+        self.ftpQ = Queue()
+        self.queueStop = Event()
+        self.queueStop.clear()
+        self.queueThread = Thread(target=self.queueHandler)
+        self.queueThread.start()
+        self.clearQueue = False
+
     def shutdown(self):
         indigo.server.log(u"Shutting down FTP")
 
@@ -55,7 +63,7 @@ class Plugin(indigo.PluginBase):
                 self.sleep(60.0)
 
         except self.stopThread:
-            pass
+            self.queueStop.set()    # stop the queue thread
 
 
     def deviceStartComm(self, device):
@@ -109,6 +117,7 @@ class Plugin(indigo.PluginBase):
             ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
             ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
             self.logger.error("ftp.connect error: %s" % e)
+            return None
 
         try:
             ftp.login(user=props['serverLogin'], passwd=props['serverPassword'])
@@ -116,6 +125,7 @@ class Plugin(indigo.PluginBase):
             ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
             ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
             self.logger.error("ftp.login error: %s" % e)
+            return None
 
         try:
             ftp.cwd('/'+props['directory']+'/')
@@ -123,116 +133,130 @@ class Plugin(indigo.PluginBase):
             ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
             ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
             self.logger.error("ftp.cwd error: %s" % e)
+            return None
 
         ftpDevice.updateStateOnServer(key="serverStatus", value="Success")
         ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
         return ftp
 
-    def uploadFileAction(self, pluginAction, ftpDevice):
-        localFile =  indigo.activePlugin.substitute(pluginAction.props["localFile"])
-        remoteFile =  indigo.activePlugin.substitute(pluginAction.props["remoteFile"])
-        self.logger.debug(u"uploadFileAction sending file: " + localFile)
+    def executeAction(self, pluginAction, ftpDevice, callerWaitingForResult):
+        self.logger.debug(u"executeAction, queueing Action = " + pluginAction.pluginTypeId)
 
-        ftp = self.connect(ftpDevice)
+        completeHandler = None
+        if callerWaitingForResult:
+            completeHandler = indigo.acquireCallbackCompleteHandler()
 
-        try:
-            ftp.storbinary('STOR ' + remoteFile, open(localFile, 'rb'))
-        except all_errors as e:
-            ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
-            ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
-            self.logger.error("ftp.storbinary error: %s" % e)
-
-        try:
-            ftp.quit()
-        except all_errors as e:
-            ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
-            ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
-            self.logger.error("ftp.quit error: %s" % e)
-        self.logger.debug(u"uploadFileAction complete")
+        self.ftpQ.put((pluginAction, ftpDevice, completeHandler))
 
 
-    def downloadFileAction(self, pluginAction, ftpDevice):
-        remoteFile =  indigo.activePlugin.substitute(pluginAction.props["remoteFile"])
-        localFile =  indigo.activePlugin.substitute(pluginAction.props["localFile"])
-        self.logger.debug(u"downloadFileAction getting file: " + remoteFile)
+    def queueHandler(self):
 
-        ftp = self.connect(ftpDevice)
+        while True:
+            if self.queueStop.isSet():
+                self.logger.debug(u"queueHandler queueStop isSet")
+                return
 
-        try:
-            lfile = open(localFile, 'wb')
-        except:
-            self.logger.error("Error opening local file: %s" % e)
+            time.sleep(1.0)
 
-        try:
-            ftp.retrbinary('RETR ' + remoteFile, lfile.write, 1024)
-        except all_errors as e:
-            ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
-            ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
-            self.logger.error("ftp.retrbinary error: %s" % e)
-
-        lfile.close()
-        try:
-            ftp.quit()
-        except all_errors as e:
-            ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
-            ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
-            self.logger.error("ftp.quit error: %s" % e)
-        self.logger.debug(u"downloadFileAction complete")
-
-    def renameFileAction(self, pluginAction, ftpDevice):
-        fromFile =  indigo.activePlugin.substitute(pluginAction.props["fromFile"])
-        toFile =  indigo.activePlugin.substitute(pluginAction.props["toFile"])
-        self.logger.debug(u"renameFileAction from: " + fromFile + " to: " + toFile)
-
-        ftp = self.connect(ftpDevice)
-
-        try:
-            ftp.rename(fromFile, toFile)
-        except all_errors as e:
-            self.logger.error("ftp.rename error: %s" % e)
-
-        try:
-            ftp.quit()
-        except all_errors as e:
-            self.logger.error("ftp.quit error: %s" % e)
-        self.logger.debug(u"renameFileAction complete")
+            if self.clearQueue:
+                self.logger.debug(u"Clearing FTP Queue")
+                self.ftpQ = Queue()
+                self.clearQueue = False
 
 
-    def deleteFileAction(self, pluginAction, ftpDevice):
-        remoteFile =  indigo.activePlugin.substitute(pluginAction.props["remoteFile"])
-        self.logger.debug(u"deleteFileAction deleting file: " + remoteFile)
+            try:
+                (pluginAction, ftpDevice, completeHandler) = self.ftpQ.get(False)
+                self.logger.debug(u"queueHandler action = %s, %d in queue" % (pluginAction.pluginTypeId, self.ftpQ.qsize()))
 
-        ftp = self.connect(ftpDevice)
+                result = None
 
-        try:
-            ftp.delete(remoteFile)
-        except all_errors as e:
-            self.logger.error("ftp.delete error: %s" % e)
+                ftp = self.connect(ftpDevice)
+                if not ftp:
+                    self.logger.debug(u"executeAction, connection failure, requeueing operation")
+                    self.ftpQ.put((pluginAction, ftpDevice, completeHandler))
+                    continue
 
-        try:
-            ftp.quit()
-        except all_errors as e:
-            self.logger.error("ftp.quit error: %s" % e)
-        self.logger.debug(u"deleteFileAction complete")
+                if pluginAction.pluginTypeId == u"uploadFile":
 
-    def nameListAction(self, pluginAction, ftpDevice):
-        self.logger.debug(u"nameListAction")
+                    localFile =  indigo.activePlugin.substitute(pluginAction.props["localFile"])
+                    remoteFile =  indigo.activePlugin.substitute(pluginAction.props["remoteFile"])
+                    self.logger.debug(u"uploadFileAction sending file: " + localFile)
+                    try:
+                        ftp.storbinary('STOR ' + remoteFile, open(localFile, 'rb'))
+                        self.logger.debug(u"ftp.storbinary complete")
+                    except all_errors as e:
+                        ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
+                        ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+                        self.logger.error("ftp.storbinary error: %s" % e)
 
-        ftp = self.connect(ftpDevice)
 
-        try:
-            names = ftp.nlst()
-            ftpDevice.updateStateOnServer(key="nameList", value=json.dumps(names))
-            self.logger.debug(u"names = %s" % names)
-        except all_errors as e:
-            self.logger.error("ftp.nlst error: %s" % e)
+                elif  pluginAction.pluginTypeId == u"downloadFile":
 
-        try:
-            ftp.quit()
-        except all_errors as e:
-            self.logger.error("ftp.quit error: %s" % e)
-        self.logger.debug(u"deleteFileAction complete")
-        return names
+                    remoteFile =  indigo.activePlugin.substitute(pluginAction.props["remoteFile"])
+                    localFile =  indigo.activePlugin.substitute(pluginAction.props["localFile"])
+                    self.logger.debug(u"downloadFileAction getting file: " + remoteFile)
+                    try:
+                        lfile = open(localFile, 'wb')
+                    except:
+                        self.logger.error("Error opening local file: %s" % e)
+                    try:
+                        ftp.retrbinary('RETR ' + remoteFile, lfile.write, 1024)
+                        self.logger.debug(u"ftp.retrbinary complete")
+                    except all_errors as e:
+                        ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
+                        ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+                        self.logger.error("ftp.retrbinary error: %s" % e)
+
+                    lfile.close()
+
+                elif  pluginAction.pluginTypeId == u"renameFile":
+                    fromFile =  indigo.activePlugin.substitute(pluginAction.props["fromFile"])
+                    toFile =  indigo.activePlugin.substitute(pluginAction.props["toFile"])
+                    self.logger.debug(u"renameFileAction from: " + fromFile + " to: " + toFile)
+                    try:
+                        ftp.rename(fromFile, toFile)
+                        self.logger.debug(u"ftp.rename complete")
+                    except all_errors as e:
+                        self.logger.error("ftp.rename error: %s" % e)
+
+                elif  pluginAction.pluginTypeId == u"deleteFile":
+
+                    remoteFile =  indigo.activePlugin.substitute(pluginAction.props["remoteFile"])
+                    self.logger.debug(u"deleteFileAction deleting file: " + remoteFile)
+                    try:
+                        ftp.delete(remoteFile)
+                        self.logger.debug(u"ftp.delete complete")
+                    except all_errors as e:
+                        self.logger.error("ftp.delete error: %s" % e)
+
+                elif  pluginAction.pluginTypeId == u"nameList":
+
+                    try:
+                        result = ftp.nlst()
+                        self.logger.debug(u"ftp.nlst complete, names = %s" % result)
+                        ftpDevice.updateStateOnServer(key="nameList", value=json.dumps(result))
+                    except all_errors as e:
+                        self.logger.error("ftp.nlst error: %s" % e)
+
+                else:
+                    self.logger.error(u"Unknown Plugin Action ID: " + pluginTypeId)
+
+                try:
+                    ftp.quit()
+                except all_errors as e:
+                    ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
+                    ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+                    self.logger.error("ftp.quit error: %s" % e)
+
+                if completeHandler is not None:
+                    completeHandler.returnResult(result)
+
+            except Empty:
+                pass
+            except Exception, exc:
+                if completeHandler is not None:
+                    completeHandler.returnException(exc)
+
 
     ########################################
     # Menu Methods
@@ -247,3 +271,6 @@ class Plugin(indigo.PluginBase):
     def forceUpdate(self):
         self.updater.update(currentVersion='0.0.0')
 
+    def clearAllQueues(self):
+        self.clearQueue = True
+        self.logger.debug(u"Setting clearQueue Flag")
