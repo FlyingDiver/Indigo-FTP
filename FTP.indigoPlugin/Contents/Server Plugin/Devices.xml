@@ -16,6 +16,9 @@
             <Field id="passive" type="checkbox" defaultValue="false">
                 <Label>Use Passive Mode</Label>
             </Field>
+            <Field id="tls" type="checkbox" defaultValue="false">
+                <Label>Use FTP_TLS</Label>
+            </Field>
             <Field id="serverLogin" type="textfield">
                 <Label>Login:</Label>
             </Field>

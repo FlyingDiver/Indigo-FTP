@@ -9,7 +9,7 @@ import json
 
 from Queue import Queue, Empty
 from threading import Thread, Event
-from ftplib import FTP, all_errors
+from ftplib import FTP, FTP_TLS, all_errors
 
 from ghpu import GitHubPluginUpdater
 
@@ -106,7 +106,13 @@ class Plugin(indigo.PluginBase):
 
         props = ftpDevice.pluginProps
         port = props["port"]
-        ftp = FTP()
+
+        self.logger.debug(u"ftp_tls mode %s" % props['passive'])
+        if props['tls']:
+            ftp = FTP_TLS()
+        else:
+            ftp = FTP()
+
         self.logger.debug(u"connect setting passive mode %s" % props['passive'])
         ftp.set_pasv(props['passive'])
         self.logger.debug(u"connect connecting to server: %s (%s)" % (props['address'], port))
@@ -126,6 +132,15 @@ class Plugin(indigo.PluginBase):
             ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
             self.logger.error("ftp.login error: %s" % e)
             return None
+
+        if props['tls']:
+            try:
+                ftp.prot_p()
+            except all_errors as e:
+                ftpDevice.updateStateOnServer(key="serverStatus", value="Failure")
+                ftpDevice.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+                self.logger.error("ftp.prot_p error: %s" % e)
+                return None
 
         try:
             ftp.cwd('/'+props['directory']+'/')
