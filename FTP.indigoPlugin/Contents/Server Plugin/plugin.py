@@ -67,6 +67,20 @@ class Plugin(indigo.PluginBase):
 
 
     def deviceStartComm(self, device):
+        instanceVers = int(device.pluginProps.get('devVersCount', 0))
+        if instanceVers >= kCurDevVersCount:
+            self.logger.debug(device.name + u": Device Version is up to date")
+        elif instanceVers < kCurDevVersCount:
+            newProps = device.pluginProps
+
+            newProps["devVersCount"] = kCurDevVersCount
+            device.replacePluginPropsOnServer(newProps)
+            device.stateListOrDisplayStateIdChanged()
+            self.logger.debug(u"deviceStartComm: Updated " + device.name + " to version " + str(kCurDevVersCount))
+
+        else:
+            self.logger.error(u"Unknown device version: " + str(instanceVers) + " for device " + device.name)
+
         device.updateStateOnServer(key="serverStatus", value="Success")
         device.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
 
