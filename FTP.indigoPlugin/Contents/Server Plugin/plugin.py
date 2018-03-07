@@ -11,8 +11,6 @@ from Queue import Queue, Empty
 from threading import Thread, Event
 from ftplib import FTP, FTP_TLS, all_errors
 
-from ghpu import GitHubPluginUpdater
-
 ################################################################################
 class Plugin(indigo.PluginBase):
 
@@ -35,11 +33,6 @@ class Plugin(indigo.PluginBase):
     def startup(self):
         indigo.server.log(u"Starting up FTP")
 
-        self.updater = GitHubPluginUpdater(self)
-        self.updateFrequency = float(self.pluginPrefs.get('updateFrequency', "24")) * 60.0 * 60.0
-        self.logger.debug(u"updateFrequency = " + str(self.updateFrequency))
-        self.next_update_check = time.time()
-
         self.ftpQ = Queue()
         self.queueStop = Event()
         self.queueStop.clear()
@@ -55,10 +48,6 @@ class Plugin(indigo.PluginBase):
 
         try:
             while True:
-
-                if (self.updateFrequency > 0.0) and (time.time() > self.next_update_check):
-                    self.next_update_check = time.time() + self.updateFrequency
-                    self.updater.checkForUpdate()
 
                 self.sleep(60.0)
 
@@ -88,11 +77,6 @@ class Plugin(indigo.PluginBase):
     def validatePrefsConfigUi(self, valuesDict):
         errorDict = indigo.Dict()
 
-        updateFrequency = int(valuesDict['updateFrequency'])
-        if (updateFrequency < 0) or (updateFrequency > 24):
-            errorDict['updateFrequency'] = u"Update frequency is invalid - enter a valid number (between 0 and 24)"
-            self.logger.debug(u"updateFrequency out of range: " + valuesDict['updateFrequency'])
-
         if len(errorDict) > 0:
             return (False, valuesDict, errorDict)
         return (True, valuesDict)
@@ -106,11 +90,6 @@ class Plugin(indigo.PluginBase):
                 self.logLevel = logging.INFO
             self.indigo_log_handler.setLevel(self.logLevel)
             self.logger.debug(u"logLevel = " + str(self.logLevel))
-
-            self.updateFrequency = float(self.pluginPrefs.get('updateFrequency', "24")) * 60.0 * 60.0
-            self.logger.debug(u"updateFrequency = " + str(self.updateFrequency))
-            self.next_update_check = time.time()
-
 
     ########################################
     # Plugin Actions object callbacks (pluginAction is an Indigo plugin action instance)
@@ -290,15 +269,6 @@ class Plugin(indigo.PluginBase):
     ########################################
     # Menu Methods
     ########################################
-
-    def checkForUpdates(self):
-        self.updater.checkForUpdate()
-
-    def updatePlugin(self):
-        self.updater.update()
-
-    def forceUpdate(self):
-        self.updater.update(currentVersion='0.0.0')
 
     def clearAllQueues(self):
         self.clearQueue = True
