@@ -11,6 +11,8 @@ from Queue import Queue, Empty
 from threading import Thread, Event
 from ftplib import FTP, FTP_TLS, all_errors
 
+kCurDevVersCount = 0  # current version of plugin devices
+
 ################################################################################
 class Plugin(indigo.PluginBase):
 
@@ -42,18 +44,16 @@ class Plugin(indigo.PluginBase):
 
     def shutdown(self):
         indigo.server.log(u"Shutting down FTP")
+        self.queueStop.set()    # stop the queue thread
 
-
-    def runConcurrentThread(self):
-
-        try:
-            while True:
-
-                self.sleep(60.0)
-
-        except self.stopThread:
-            self.queueStop.set()    # stop the queue thread
-
+#   No runConcurrentThread since all requests are handled by the queueHandler thread
+#     def runConcurrentThread(self):
+#         try:
+#             while True:
+#               
+#         except self.StopThread:
+#             pass        
+            
 
     def deviceStartComm(self, device):
         instanceVers = int(device.pluginProps.get('devVersCount', 0))
